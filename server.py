@@ -12,6 +12,7 @@ import sys
 import os
 import json
 import cgi
+import shutil
 import tempfile
 import socket
 from pathlib import Path
@@ -199,7 +200,7 @@ class AuthenticityApiHandler(SimpleHTTPRequestHandler):
             # Save uploaded video to temporary file
             suffix = Path(filename).suffix or ".mp4"
             with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-                tmp.write(file_item.file.read())
+                shutil.copyfileobj(file_item.file, tmp, length=1024 * 1024)
                 temp_video_path = tmp.name
 
             try:
@@ -215,7 +216,8 @@ class AuthenticityApiHandler(SimpleHTTPRequestHandler):
                     interval=interval,
                     max_frames=max_frames,
                     device="cpu",
-                    aggregation=aggregation
+                    aggregation=aggregation,
+                    batch_size=1
                 )
 
                 threshold = 0.628847

@@ -2,7 +2,7 @@ services:
   - type: web
     name: ai-video-authenticity
     runtime: docker
-    plan: 1c-2g
+    plan: free
     region: singapore
     healthCheckPath: /api/health
     envVars:

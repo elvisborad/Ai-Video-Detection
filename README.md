@@ -62,16 +62,16 @@ py -3.11 server.py
 
 The backend verifies Google's signed ID token and requires it on prediction requests. The browser keeps the token in memory only; reloading the page requires signing in again. `GOOGLE_CLIENT_ID` must match `VITE_GOOGLE_CLIENT_ID`. Google sign-in uses the visitor's existing Google account and can also be used to create one through Google.
 
-### Deploy the full site on Render
+### Deploy the full site on Render Free
 
-This project includes a Docker-based Render Blueprint in `render.yaml`. It deploys the React frontend and Python inference API together on one HTTPS origin, builds in the ResNet50 checkpoint, and reads the Google client ID from a Render environment variable at runtime. The checkpoint is about 94 MB and is intentionally included in the deploy repository; the original video datasets and local environment files are excluded.
+This Docker Blueprint deploys the React frontend and Python inference API together and includes the ResNet50 checkpoint (about 94 MB). `.gitignore` excludes the training videos and local environment files while allowing the model checkpoint into the deploy repository.
 
-1. Push this project to a Git provider connected to Render. Make sure `results/models/best_model.pt` is included in the repository; `.gitignore` now allows this file while excluding the source-video folders and generated frame cache.
-2. In Render, create a **Blueprint** from that repository and select `render.yaml`. The Blueprint requests the `1c-2g` web plan (1 CPU, 2 GB RAM) for CPU inference. Render's Free web plan has 512 MB RAM and spins down after 15 idle minutes, so it is not suitable for dependable model inference. The `1c-2g` service is a paid plan; check the current [Render pricing page](https://render.com/pricing) before creating it.
-3. When prompted for `GOOGLE_CLIENT_ID`, use the same Web OAuth client ID configured locally. After Render assigns the service URL, add its exact HTTPS origin (for example, `https://ai-video-authenticity.onrender.com`) to **Authorized JavaScript origins** for that OAuth client.
-4. Wait for the health check at `/api/health` to pass, then open the Render URL and sign in. Prediction requests are authenticated and use the included checkpoint.
+1. Push the project to a Git provider connected to Render. Confirm `results/models/best_model.pt` is committed; source video folders and local secrets should remain excluded.
+2. In Render, create a **Blueprint** from the repository and select `render.yaml`. The Blueprint uses the Free web plan, which is $0. Render Free services have 512 MB RAM, 0.1 CPU, and spin down after 15 idle minutes. Those limits may be too small or slow for PyTorch video inference; this deployment is a free trial of the app, not a guarantee that analysis will complete. See [Render free service limits](https://render.com/docs/free).
+3. Set `GOOGLE_CLIENT_ID` to the same Google Web OAuth client ID used locally. After Render creates the service, add its exact HTTPS origin (for example, `https://ai-video-authenticity.onrender.com`) to that OAuth client’s **Authorized JavaScript origins**.
+4. Wait for `/api/health` to pass, open the Render URL, and sign in. Then try a small video first. If inference exceeds the Free service’s memory or request limits, the landing page may still work while analysis fails; reliable inference may require reducing the model/runtime memory use or a larger host.
 
-Render requires the container to bind to `0.0.0.0` and its `PORT`; the Blueprint sets the host and the server reads Render's port environment variable. The Render service is not created by a local build: it must be connected to a Git repository in a Render account.
+Render builds the Docker image from the repository and provides the service `PORT`; the container listens on `0.0.0.0`. Free services may be suspended when monthly included usage is exhausted. Render documents that excess bandwidth can be billed if a payment method is on file, or services can be suspended if no payment method is added. Review the [free plan limits](https://render.com/docs/free) before deployment.
 
 Training options: `--epochs`, `--batch-size`, `--learning-rate`, and `--seed`. The config controls paths, frame sampling, image size, batch size, epochs, and worker count. The pipeline samples up to 12 frames approximately once per second by default, caches resized frames, records extraction errors, and writes per-video split manifests. Stratification may fail on very small classes; provide enough examples of each class to allocate all three splits. Split targets are 70/15/15 by video.
 
