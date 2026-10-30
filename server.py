@@ -12,11 +12,15 @@ import sys
 import os
 import json
 import cgi
+import logging
 import shutil
 import tempfile
 import socket
 from pathlib import Path
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 PORT = int(os.environ.get("PORT", 8000))
 HOST = os.environ.get("HOST", "127.0.0.1")
@@ -134,7 +138,8 @@ class AuthenticityApiHandler(SimpleHTTPRequestHandler):
             self._send_json(200, {"user": user})
         except RuntimeError as exc:
             self._send_json_error(503, str(exc))
-        except Exception:
+        except Exception as exc:
+            logger.exception("Google sign-in verification failed (%s)", type(exc).__name__)
             self._send_json_error(401, "Google sign-in could not be verified")
 
     def _send_json(self, code, payload):
