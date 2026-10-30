@@ -1,6 +1,9 @@
 import argparse
 from pathlib import Path
+from pathlib import PureWindowsPath
 import hashlib
+import io
+import pickle
 import statistics
 import torch
 from PIL import Image
@@ -9,8 +12,44 @@ from .model import build_model
 from .video_processor import extract_frames
 
 
+class _CheckpointUnpickler(pickle.Unpickler):
+    """Load Windows-saved pathlib objects on Linux without filesystem access."""
+
+    def find_class(self, module, name):
+        if module == "pathlib" and name == "WindowsPath":
+            return PureWindowsPath
+        return super().find_class(module, name)
+
+
+class _CheckpointPickleModule:
+    """Pickle adapter that maps serialized WindowsPath values to pure paths."""
+
+    __name__ = "checkpoint_pickle"
+    Unpickler = _CheckpointUnpickler
+    Pickler = pickle.Pickler
+    dump = staticmethod(pickle.dump)
+    dumps = staticmethod(pickle.dumps)
+
+    @staticmethod
+    def load(file, **kwargs):
+        return _CheckpointUnpickler(file, **kwargs).load()
+
+    @staticmethod
+    def loads(data, **kwargs):
+        return _CheckpointUnpickler(io.BytesIO(data), **kwargs).load()
+
+
+def load_checkpoint_data(path, device):
+    return torch.load(
+        path,
+        map_location=device,
+        pickle_module=_CheckpointPickleModule,
+        weights_only=False,
+    )
+
+
 def load_checkpoint(path, device):
-    ckpt = torch.load(path, map_location=device, weights_only=False)
+    ckpt = load_checkpoint_data(path, device)
     model = build_model(pretrained=False, freeze_backbone=False)
     model.load_state_dict(ckpt["state_dict"]); model.to(device).eval()
     return model, ckpt
@@ -49,7 +88,7 @@ def main():
     ap.add_argument("--aggregation",choices=["mean","median"],default="mean",help="How sampled-frame AI scores are combined")
     ap.add_argument("--threshold",type=float,help="Override the validation-calibrated decision threshold")
     args=ap.parse_args()
-    checkpoint=torch.load(args.checkpoint,map_location="cpu",weights_only=False)
+    checkpoint=load_checkpoint_data(args.checkpoint, "cpu")
     threshold=args.threshold if args.threshold is not None else checkpoint.get("decision_thresholds",{}).get(args.aggregation,0.5)
     label,score,count=predict(args.video,args.checkpoint,args.interval,args.max_frames,args.device,aggregation=args.aggregation,threshold=threshold)
     warning="\nWarning: score is close to the decision threshold; treat this result as uncertain." if abs(score-threshold)<0.05 else ""
