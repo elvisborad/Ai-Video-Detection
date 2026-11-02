@@ -450,14 +450,12 @@ button {
 }
 
 .preset-card {
-  text-align: left;
-  padding: 12px 14px;
   border: 1px solid var(--color-gray-200);
   border-radius: var(--radius-md);
   background-color: var(--color-white);
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  flex-direction: column;
+  overflow: hidden;
   transition: all 0.15s ease;
 }
 
@@ -471,6 +469,30 @@ button {
   outline: none;
   border-color: var(--color-teal);
   box-shadow: 0 0 0 3px rgba(15, 139, 141, 0.2);
+}
+
+.preset-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #0b1c2c;
+  object-fit: contain;
+}
+
+.preset-card-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px 0;
+}
+
+.preset-info {
+  min-width: 0;
+}
+
+.preset-use-button {
+  margin: 12px 14px 14px;
+  align-self: flex-start;
 }
 
 .preset-icon {

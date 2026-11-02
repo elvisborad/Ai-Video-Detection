@@ -176,23 +176,38 @@ export function VideoUploadCard({
             </div>
             <div className="preset-grid">
               {DEMO_PRESETS.map((preset) => (
-                <button
-                  key={preset.id}
-                  type="button"
-                  className="preset-card"
-                  onClick={() => handleSelectPreset(preset)}
-                >
-                  <div className="preset-icon">
-                    <Sparkles size={16} />
-                  </div>
-                  <div className="preset-info">
-                    <h4>{preset.name}</h4>
-                    <p>{preset.description}</p>
-                    <div style={{ marginTop: "6px" }}>
-                      <span className="tag-badge">{preset.filename}</span>
+                <article key={preset.id} className="preset-card">
+                  <video
+                    className="preset-video"
+                    src={preset.videoSrc}
+                    controls
+                    playsInline
+                    preload="none"
+                    aria-label={`Preview ${preset.name}`}
+                  >
+                    Your browser does not support the video preview.
+                  </video>
+                  <div className="preset-card-body">
+                    <div className="preset-icon">
+                      <Sparkles size={16} />
+                    </div>
+                    <div className="preset-info">
+                      <h4>{preset.name}</h4>
+                      <p>{preset.description}</p>
+                      <div style={{ marginTop: "6px" }}>
+                        <span className="tag-badge">{preset.filename}</span>
+                      </div>
                     </div>
                   </div>
-                </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary preset-use-button"
+                    onClick={() => handleSelectPreset(preset)}
+                  >
+                    <Play size={15} />
+                    <span>Use sample clip</span>
+                  </button>
+                </article>
               ))}
             </div>
           </div>
