@@ -18,6 +18,7 @@ import tempfile
 import socket
 from pathlib import Path
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
+from urllib.request import Request, urlopen
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -35,6 +36,11 @@ ALLOWED_ORIGINS = {
 ROOT_DIR = Path(__file__).resolve().parent
 DIST_DIR = ROOT_DIR / "frontend" / "dist"
 CHECKPOINT_PATH = ROOT_DIR / "results" / "models" / "best_model.pt"
+SAMPLE_CLIPS = {
+    "preset-ai": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+    "preset-real": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+    "preset-borderline": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+}
 
 # Ensure root is in sys.path to import src
 if str(ROOT_DIR) not in sys.path:
@@ -64,6 +70,11 @@ class AuthenticityApiHandler(SimpleHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        path = self.path.split("?", 1)[0]
+        if path.startswith("/api/samples/"):
+            self._serve_sample_clip(path.removeprefix("/api/samples/"))
+            return
+
         if self.path == "/api/config" or self.path == "/api/config/":
             self._send_json(200, {"google_client_id": GOOGLE_CLIENT_ID})
             return
@@ -95,6 +106,36 @@ class AuthenticityApiHandler(SimpleHTTPRequestHandler):
                 self.path = "/index.html"
 
         return super().do_GET()
+
+    def _serve_sample_clip(self, sample_id):
+        source_url = SAMPLE_CLIPS.get(sample_id)
+        if not source_url:
+            self._send_json_error(404, "Sample clip not found")
+            return
+
+        response_started = False
+        try:
+            upstream_request = Request(source_url, headers={"User-Agent": "AI-Video-Detection-Demo/1.0"})
+            with urlopen(upstream_request, timeout=45) as upstream:
+                content_length = upstream.headers.get("Content-Length")
+                if content_length and int(content_length) > MAX_UPLOAD_BYTES:
+                    self._send_json_error(413, "Sample clip exceeds the upload limit")
+                    return
+
+                self.send_response(200)
+                self.send_header("Content-Type", "video/mp4")
+                if content_length:
+                    self.send_header("Content-Length", content_length)
+                self.send_header("Cache-Control", "public, max-age=3600")
+                self.end_headers()
+                response_started = True
+                shutil.copyfileobj(upstream, self.wfile, length=1024 * 1024)
+        except (BrokenPipeError, ConnectionResetError):
+            logger.info("Client stopped downloading sample clip %s", sample_id)
+        except Exception as exc:
+            logger.exception("Could not load sample clip %s (%s)", sample_id, type(exc).__name__)
+            if not response_started:
+                self._send_json_error(502, "Could not load this sample clip. Try another sample or upload a video.")
 
     def do_POST(self):
         if self.path == "/api/auth/google":

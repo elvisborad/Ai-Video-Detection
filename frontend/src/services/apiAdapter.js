@@ -90,13 +90,24 @@ export class ApiAdapter {
     onProgress(15, "Connecting to Python ResNet-50 service...");
     const formData = new FormData();
 
-    if (videoItem instanceof File) {
-      formData.append("file", videoItem);
-    } else if (videoItem.file) {
-      formData.append("file", videoItem.file);
-    } else {
-      throw new Error("Live mode requires a local video file upload.");
+    let videoFile = videoItem instanceof File ? videoItem : videoItem.file;
+    if (!videoFile && videoItem.sampleId) {
+      onProgress(25, "Preparing the preloaded sample clip...");
+      const sampleResponse = await fetch(`/api/samples/${encodeURIComponent(videoItem.sampleId)}`);
+      if (!sampleResponse.ok) {
+        const details = await sampleResponse.text();
+        throw new Error(`Could not load sample clip (${sampleResponse.status}): ${details}`);
+      }
+      const sampleBlob = await sampleResponse.blob();
+      if (!sampleBlob.size) throw new Error("The sample clip downloaded empty.");
+      videoFile = new File([sampleBlob], videoItem.filename || "sample.mp4", {
+        type: sampleBlob.type || "video/mp4",
+      });
     }
+    if (!videoFile) {
+      throw new Error("Live mode requires an uploaded video or a preloaded sample clip.");
+    }
+    formData.append("file", videoFile);
 
     formData.append("interval", interval);
     formData.append("max_frames", maxFrames);

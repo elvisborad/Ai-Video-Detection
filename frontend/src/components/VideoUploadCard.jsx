@@ -222,7 +222,7 @@ export function VideoUploadCard({
                 </span>
                 <h3 className="file-name-text">{selectedVideo.name || selectedVideo.filename}</h3>
                 <div className="file-tags">
-                  <span className="tag-badge">Size: {selectedVideo.size}</span>
+                  {selectedVideo.size && <span className="tag-badge">Size: {selectedVideo.size}</span>}
                   {selectedVideo.duration && (
                     <span className="tag-badge">Duration: {selectedVideo.duration}</span>
                   )}
